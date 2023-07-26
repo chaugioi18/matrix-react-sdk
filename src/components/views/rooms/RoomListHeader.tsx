@@ -354,7 +354,6 @@ const RoomListHeader: React.FC<IProps> = ({ onVisibilityChange }) => {
                 />
             );
         }
-
         contextMenu = (
             <IconizedContextMenu
                 {...contextMenuBelow(plusMenuHandle.current!.getBoundingClientRect())}
@@ -364,6 +363,15 @@ const RoomListHeader: React.FC<IProps> = ({ onVisibilityChange }) => {
                 <IconizedContextMenuOptionList first>
                     {newRoomOpts}
                     {joinRoomOpt}
+                    <IconizedContextMenuOption
+                        label={_t("Open dial pad")}
+                        iconClassName="mx_RoomList_iconDialpad"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            defaultDispatcher.fire(Action.OpenDialPad);
+                        }}
+                    />
                 </IconizedContextMenuOptionList>
             </IconizedContextMenu>
         );

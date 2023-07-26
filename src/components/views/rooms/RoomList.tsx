@@ -62,6 +62,7 @@ import AccessibleTooltipButton from "../elements/AccessibleTooltipButton";
 import ExtraTile from "./ExtraTile";
 import RoomSublist, { IAuxButtonProps } from "./RoomSublist";
 import { SdkContextClass } from "../../../contexts/SDKContext";
+import {showDialog} from "../dialogs/AnalyticsLearnMoreDialog";
 
 interface IProps {
     onKeyDown: (ev: React.KeyboardEvent, state: IRovingTabIndexState) => void;
@@ -165,6 +166,18 @@ const DmAuxButton: React.FC<IAuxButtonProps> = ({ tabIndex, dispatcher = default
                                 }
                             />
                         )}
+                        (
+                            <IconizedContextMenuOption
+                                label={_t("Open dial pad")}
+                                iconClassName="mx_RoomList_iconDialpad"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    closeMenu();
+                                    defaultDispatcher.fire(Action.OpenDialPad);
+                                }}
+                            />
+                        )
                     </IconizedContextMenuOptionList>
                 </IconizedContextMenu>
             );
