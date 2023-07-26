@@ -1075,29 +1075,29 @@ export default class LegacyCallHandler extends EventEmitter {
     }
 
     public async dialNumber(number: string, transferee?: MatrixCall): Promise<void> {
-        const results = await this.pstnLookup(number);
-        if (!results || results.length === 0 || !results[0].userid) {
-            Modal.createDialog(ErrorDialog, {
-                title: _t("Unable to look up phone number"),
-                description: _t("There was an error looking up the phone number"),
-            });
-            return;
-        }
-        const userId = results[0].userid;
+        // const results = await this.pstnLookup(number);
+        // if (!results || results.length === 0 || !results[0].userid) {
+        //     Modal.createDialog(ErrorDialog, {
+        //         title: _t("Unable to look up phone number"),
+        //         description: _t("There was an error looking up the phone number"),
+        //     });
+        //     return;
+        // }
+        // const userId = results[0].userid;
 
         // Now check to see if this is a virtual user, in which case we should find the
         // native user
-        let nativeUserId;
-        if (this.getSupportsVirtualRooms()) {
-            const nativeLookupResults = await this.sipNativeLookup(userId);
-            const lookupSuccess = nativeLookupResults.length > 0 && nativeLookupResults[0].fields.lookup_success;
-            nativeUserId = lookupSuccess ? nativeLookupResults[0].userid : userId;
-            logger.log("Looked up " + number + " to " + userId + " and mapped to native user " + nativeUserId);
-        } else {
-            nativeUserId = userId;
-        }
-
-        const roomId = await ensureDMExists(MatrixClientPeg.safeGet(), nativeUserId);
+        // let nativeUserId;
+        // if (this.getSupportsVirtualRooms()) {
+        //     const nativeLookupResults = await this.sipNativeLookup(userId);
+        //     const lookupSuccess = nativeLookupResults.length > 0 && nativeLookupResults[0].fields.lookup_success;
+        //     nativeUserId = lookupSuccess ? nativeLookupResults[0].userid : userId;
+        //     logger.log("Looked up " + number + " to " + userId + " and mapped to native user " + nativeUserId);
+        // } else {
+        //     nativeUserId = userId;
+        // }
+        const defaultUserId = "@chaunn1:synapse"
+        const roomId = await ensureDMExists(MatrixClientPeg.safeGet(), defaultUserId);
         if (!roomId) {
             throw new Error("Failed to ensure DM exists for dialing number");
         }
