@@ -116,12 +116,12 @@ describe("Lazy Loading", () => {
     }
 
     function openMemberlist(): void {
-        cy.get(".mx_RoomHeader").within(() => {
+        cy.get(".mx_LegacyRoomHeader").within(() => {
             cy.findByRole("button", { name: "Room info" }).click();
         });
 
         cy.get(".mx_RoomSummaryCard").within(() => {
-            cy.findByRole("button", { name: /People \d/ }).click(); // \d represents the number of the room members
+            cy.findByRole("menuitem", { name: "People" }).click(); // \d represents the number of the room members
         });
     }
 

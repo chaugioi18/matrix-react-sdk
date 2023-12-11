@@ -17,7 +17,6 @@ limitations under the License.
 
 import React from "react";
 import { logger } from "matrix-js-sdk/src/logger";
-import { IKeyBackupInfo } from "matrix-js-sdk/src/crypto/keybackup";
 
 import { MatrixClientPeg } from "../../../../MatrixClientPeg";
 import { _t } from "../../../../languageHandler";
@@ -45,9 +44,13 @@ interface IState {
     error?: boolean;
 }
 
-/*
- * Walks the user through the process of creating an e2e key backup
- * on the server.
+/**
+ * Walks the user through the process of setting up e2e key backups to a new backup, and storing the decryption key in
+ * SSSS.
+ *
+ * Uses {@link accessSecretStorage}, which means that if 4S is not already configured, it will be bootstrapped (which
+ * involves displaying an {@link CreateSecretStorageDialog} so the user can enter a passphrase and/or download the 4S
+ * key).
  */
 export default class CreateKeyBackupDialog extends React.PureComponent<IProps, IState> {
     public constructor(props: IProps) {
@@ -71,16 +74,25 @@ export default class CreateKeyBackupDialog extends React.PureComponent<IProps, I
         this.setState({
             error: undefined,
         });
-        let info: IKeyBackupInfo | undefined;
         const cli = MatrixClientPeg.safeGet();
         try {
-            await accessSecretStorage(async (): Promise<void> => {
-                info = await cli.prepareKeyBackupVersion(null /* random key */, {
-                    secureSecretStorage: true,
-                });
-                info = await cli.createKeyBackupVersion(info);
-            });
-            await cli.scheduleAllGroupSessionsForBackup();
+            // We don't want accessSecretStorage to create a backup for us - we
+            // will create one ourselves in the closure we pass in by calling
+            // resetKeyBackup.
+            const setupNewKeyBackup = false;
+            const forceReset = false;
+
+            await accessSecretStorage(
+                async (): Promise<void> => {
+                    const crypto = cli.getCrypto();
+                    if (!crypto) {
+                        throw new Error("End-to-end encryption is disabled - unable to create backup.");
+                    }
+                    await crypto.resetKeyBackup();
+                },
+                forceReset,
+                setupNewKeyBackup,
+            );
             this.setState({
                 phase: Phase.Done,
             });
@@ -90,9 +102,6 @@ export default class CreateKeyBackupDialog extends React.PureComponent<IProps, I
             // delete the version, disable backup, or do nothing?  If we just
             // disable without deleting, we'll enable on next app reload since
             // it is trusted.
-            if (info?.version) {
-                cli.deleteKeyBackupVersion(info.version);
-            }
             this.setState({
                 error: true,
             });
@@ -118,8 +127,8 @@ export default class CreateKeyBackupDialog extends React.PureComponent<IProps, I
     private renderPhaseDone(): JSX.Element {
         return (
             <div>
-                <p>{_t("Your keys are being backed up (the first backup could take a few minutes).")}</p>
-                <DialogButtons primaryButton={_t("OK")} onPrimaryButtonClick={this.onDone} hasCancel={false} />
+                <p>{_t("settings|key_backup|backup_in_progress")}</p>
+                <DialogButtons primaryButton={_t("action|ok")} onPrimaryButtonClick={this.onDone} hasCancel={false} />
             </div>
         );
     }
@@ -127,11 +136,11 @@ export default class CreateKeyBackupDialog extends React.PureComponent<IProps, I
     private titleForPhase(phase: Phase): string {
         switch (phase) {
             case Phase.BackingUp:
-                return _t("Starting backup…");
+                return _t("settings|key_backup|backup_starting");
             case Phase.Done:
-                return _t("Success!");
+                return _t("settings|key_backup|backup_success");
             default:
-                return _t("Create key backup");
+                return _t("settings|key_backup|create_title");
         }
     }
 
@@ -140,9 +149,9 @@ export default class CreateKeyBackupDialog extends React.PureComponent<IProps, I
         if (this.state.error) {
             content = (
                 <div>
-                    <p>{_t("Unable to create key backup")}</p>
+                    <p>{_t("settings|key_backup|cannot_create_backup")}</p>
                     <DialogButtons
-                        primaryButton={_t("Retry")}
+                        primaryButton={_t("action|retry")}
                         onPrimaryButtonClick={this.createBackup}
                         hasCancel={true}
                         onCancel={this.onCancel}

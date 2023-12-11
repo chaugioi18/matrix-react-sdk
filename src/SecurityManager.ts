@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { DeviceVerificationStatus, ICryptoCallbacks } from "matrix-js-sdk/src/matrix";
+import { DeviceVerificationStatus, ICryptoCallbacks, MatrixClient, encodeBase64 } from "matrix-js-sdk/src/matrix";
 import { ISecretStorageKeyInfo } from "matrix-js-sdk/src/crypto/api";
-import { MatrixClient } from "matrix-js-sdk/src/client";
 import { deriveKey } from "matrix-js-sdk/src/crypto/key_passphrase";
 import { decodeRecoveryKey } from "matrix-js-sdk/src/crypto/recoverykey";
-import { encodeBase64 } from "matrix-js-sdk/src/crypto/olmlib";
 import { logger } from "matrix-js-sdk/src/logger";
 
 import type CreateSecretStorageDialog from "./async-components/views/dialogs/security/CreateSecretStorageDialog";
@@ -73,11 +71,11 @@ export class AccessCancelledError extends Error {
 
 async function confirmToDismiss(): Promise<boolean> {
     const [sure] = await Modal.createDialog(QuestionDialog, {
-        title: _t("Cancel entering passphrase?"),
-        description: _t("Are you sure you want to cancel entering passphrase?"),
+        title: _t("encryption|cancel_entering_passphrase_title"),
+        description: _t("encryption|cancel_entering_passphrase_description"),
         danger: false,
-        button: _t("Go Back"),
-        cancelButton: _t("Cancel"),
+        button: _t("action|go_back"),
+        cancelButton: _t("action|cancel"),
     }).finished;
     return !sure;
 }
@@ -321,8 +319,13 @@ export async function promptForBackupPassphrase(): Promise<Uint8Array> {
  * @param {Function} [func] An operation to perform once secret storage has been
  * bootstrapped. Optional.
  * @param {bool} [forceReset] Reset secret storage even if it's already set up
+ * @param {bool} [setupNewKeyBackup] Reset secret storage even if it's already set up
  */
-export async function accessSecretStorage(func = async (): Promise<void> => {}, forceReset = false): Promise<void> {
+export async function accessSecretStorage(
+    func = async (): Promise<void> => {},
+    forceReset = false,
+    setupNewKeyBackup = true,
+): Promise<void> {
     secretStorageBeingAccessed = true;
     try {
         const cli = MatrixClientPeg.safeGet();
@@ -354,10 +357,15 @@ export async function accessSecretStorage(func = async (): Promise<void> => {}, 
                 throw new Error("Secret storage creation canceled");
             }
         } else {
-            await cli.bootstrapCrossSigning({
+            const crypto = cli.getCrypto();
+            if (!crypto) {
+                throw new Error("End-to-end encryption is disabled - unable to access secret storage.");
+            }
+
+            await crypto.bootstrapCrossSigning({
                 authUploadDeviceSigningKeys: async (makeRequest): Promise<void> => {
                     const { finished } = Modal.createDialog(InteractiveAuthDialog, {
-                        title: _t("Setting up keys"),
+                        title: _t("encryption|bootstrap_title"),
                         matrixClient: cli,
                         makeRequest,
                     });
@@ -367,8 +375,9 @@ export async function accessSecretStorage(func = async (): Promise<void> => {}, 
                     }
                 },
             });
-            await cli.bootstrapSecretStorage({
+            await crypto.bootstrapSecretStorage({
                 getKeyBackupPassphrase: promptForBackupPassphrase,
+                setupNewKeyBackup,
             });
 
             const keyId = Object.keys(secretStorageKeys)[0];
